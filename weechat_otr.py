@@ -137,6 +137,10 @@ weechat.bar.status.items. This will show you whether your current conversation
 is encrypted, authenticated and logged. /set otr.* for OTR status bar
 customization options.
 
+The status of an OTR conversation is exported to the internal weechat infolist.
+You can read the status via relay or another script using weechat.info_get('otr_status')
+or eval - n ${{info:otr_status}}
+
 Start a private conversation with a friend who has OTR: /query yourpeer hi
 
 In the private chat buffer: /otr start
@@ -163,7 +167,7 @@ This script supports only OTR protocol version 2.
 
 SCRIPT_AUTHOR = 'Matthew M. Boedicker'
 SCRIPT_LICENCE = 'GPL3'
-SCRIPT_VERSION = '1.8.0'
+SCRIPT_VERSION = '1.8.1'
 
 OTR_DIR_NAME = 'otr'
 
@@ -190,8 +194,9 @@ PLAIN_ACTION_RE = re.compile('^'+ACTION_PREFIX+'(?P<text>.*)$')
 
 IRC_SANITIZE_TABLE = dict((ord(char), None) for char in '\n\r\x00')
 
-global otr_debug_buffer
+global otr_debug_buffer,otr_info_status
 otr_debug_buffer = None
+otr_info_status = None
 
 # Patch potr.proto.TaggedPlaintext to not end plaintext tags in a space.
 #
@@ -1682,6 +1687,8 @@ def command_cb(data, buf, args):
     return result
 
 def otr_statusbar_cb(data, item, window):
+    global otr_info_status
+
     """Update the statusbar."""
     if window:
         buf = weechat.window_get_pointer(window, 'buffer')
@@ -1757,7 +1764,12 @@ def otr_statusbar_cb(data, item, window):
                 prefix=config_string('look.bar.prefix'),
                 result=result)
 
+    otr_info_status = result
     return result
+
+def otr_info_status_cb(data, info_name, arguments):
+    global otr_info_status
+    return otr_info_status
 
 def bar_config_update_cb(data, option):
     """Callback for updating the status bar when its config changes."""
@@ -2060,3 +2072,9 @@ if weechat.register(
         OTR_STATUSBAR = weechat.bar_item_new(
             SCRIPT_NAME, 'otr_statusbar_cb', '')
         weechat.bar_item_update(SCRIPT_NAME)
+        
+        weechat.hook_info('otr_status',
+                      'Return status of an OTR conversation',
+                      '',
+                      'otr_info_status_cb', '')
+
